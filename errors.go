@@ -2,64 +2,84 @@ package mediator
 
 import (
 	"fmt"
+	"reflect"
 )
 
-// NoHandlerError is returned by Execute if there is no handler
+// NoCommandForRequestTypeError is returned by Execute if there is no command
 // registered for the request and result type involved.
-type NoHandlerError struct {
+type CommandAlreadyRegisteredError struct {
+	command any
 	request any
+}
+
+func (e CommandAlreadyRegisteredError) Error() string {
+	return fmt.Sprintf("%T already registered for requests of type: %T", e.command, e.request)
+}
+
+func (e CommandAlreadyRegisteredError) Is(target error) bool {
+	if other, ok := target.(CommandAlreadyRegisteredError); ok {
+		return ok && reflect.TypeOf(other.request) == reflect.TypeOf(e.request)
+	}
+	if other, ok := target.(*CommandAlreadyRegisteredError); ok {
+		return ok && reflect.TypeOf(other.request) == reflect.TypeOf(e.request)
+	}
+	return false
+}
+
+// NoCommandForRequestTypeError is returned by Execute if there is no command
+// registered for the request and result type involved.
+type NoCommandForRequestTypeError struct {
+	request any
+}
+
+func (e NoCommandForRequestTypeError) Error() string {
+	return fmt.Sprintf("no command registered for requests of type: %T", e.request)
+}
+
+func (e NoCommandForRequestTypeError) Is(target error) bool {
+	if other, ok := target.(NoCommandForRequestTypeError); ok {
+		return ok && reflect.TypeOf(other.request) == reflect.TypeOf(e.request)
+	}
+	if other, ok := target.(*NoCommandForRequestTypeError); ok {
+		return ok && reflect.TypeOf(other.request) == reflect.TypeOf(e.request)
+	}
+	return false
+}
+
+// ResultTypeError is returned if the command registered for the
+// specified request type does not return the result type expected
+// by the caller.
+type ResultTypeError struct {
+	command any
 	result  any
 }
 
-func (e *NoHandlerError) Error() string {
-	return fmt.Sprintf("no handler for '%T' request returning '%T'", e.request, e.result)
-}
-
-func (e *NoHandlerError) Is(target error) bool {
-	other, ok := target.(*NoHandlerError)
-	return ok && other.request == e.request && other.result == e.result
-}
-
-// ResultTypeError is returned by Perform if the registered
-// handler for the specified request type does not return then
-// specified result type.
-type ResultTypeError struct {
-	handler interface{}
-	request interface{}
-	result  interface{}
-}
-
 func (e ResultTypeError) Error() string {
-	return fmt.Sprintf("handler for %T (%T) does not return %T", e.request, e.handler, e.result)
+	return fmt.Sprintf("%T does not return %T", e.command, e.result)
 }
 
-// ValidationError is returned by a handler when it is unable to
+func (e ResultTypeError) Is(target error) bool {
+	if other, ok := target.(ResultTypeError); ok {
+		return ok && reflect.TypeOf(other.result) == reflect.TypeOf(e.result)
+	}
+	if other, ok := target.(*ResultTypeError); ok {
+		return ok && reflect.TypeOf(other.result) == reflect.TypeOf(e.result)
+	}
+	return false
+}
+
+// ValidationError is returned by a command when it is unable to
 // process a request due to the request itself being invalid.  The
 // ValidationError wraps a specific error that identifies the
 // problem with the request.
-type ConfigurationError struct {
-	handler any
-	E       error
-}
-
-func (e ConfigurationError) Error() string {
-	return fmt.Sprintf("%T configuration error: %v", e.handler, e.E)
-}
-
-func (e ConfigurationError) Unwrap() error {
-	return e.E
-}
-
-// ValidationError is returned by a handler when it is unable to
-// process a request due to the request itself being invalid.  The
-// ValidationError wraps a specific error that identifies the
-// problem with the request.
+//
+//	"request validation error: <specific error>"
 type ValidationError struct {
 	E error
 }
 
 func (e ValidationError) Error() string {
-	return fmt.Sprintf("validation error: %v", e.E)
+	return fmt.Sprintf("request validation error: %v", e.E)
 }
 
 func (e ValidationError) Unwrap() error {
