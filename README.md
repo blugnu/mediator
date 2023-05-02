@@ -14,31 +14,32 @@
 
 # mediator
 
-A lightweight implementation of the [Mediator Pattern](https://en.wikipedia.org/wiki/Mediator_pattern) for `goLang`, inspired by [jbogard's MediatR framework for .net](https://github.com/jbogard/MediatR).
+A lightweight implementation of [the Mediator Pattern](https://en.wikipedia.org/wiki/Mediator_pattern) for `GoLang`, inspired by [jbogard's MediatR framework for .net](https://github.com/jbogard/MediatR).
 
 #### Project History
 
-This project was previously known as `go-mediator`.  It was renamed as simply `mediator` to align with the package name and because all `blugnu` projects are golang; the `go-` prefix was just noise.
+This project was previously known as `go-mediator`.  It has been renamed as `mediator` for consistency with the package name and because all `blugnu` projects are golang; the `go-` prefix was just noise.
 
-At the same time, the project was completely re-written and shares little more than the original concept with the previous incarnation so the release history below starts with the `mediator` rewrite.
+At the same time, the project was completely re-written; it now shares little more than the original concept with the previous incarnation.
 
-| Release |   |   |
-|---------|---|---|
-| v0.1.0 | 26-Apr-2023 | Rewritten and published as `mediator` |
+If you previously imported `go-mediator` you should update your imports to the renamed module.
 
-<br/>
 <hr/>
 
-## Mediator Pattern
-[The Mediator](https://en.wikipedia.org/wiki/Mediator_pattern) is a simple [pattern](https://en.wikipedia.org/wiki/Software_design_pattern) that uses a 3rd-party (the mediator) to facilitate communication between two other parties without them requiring knowledge of each other.
+## The Mediator Pattern
+[The Mediator](https://en.wikipedia.org/wiki/Mediator_pattern) is a simple [pattern](https://en.wikipedia.org/wiki/Software_design_pattern) that uses a 3rd-party (the mediator) to facilitate communication between two other parties without either requiring knowledge of each other.
 
 It is a powerful pattern for achieving loosely coupled code.
 
-There are many ways to implement a mediator, from simple `func` pointers to sophisticated and complex messaging systems; `blugnu/mediator` sits firmly at the *simple* end of that spectrum!
+There are many ways to implement the pattern, from simple `func` pointers to sophisticated and complex messaging systems; `blugnu/mediator` sits firmly at the *simple* end of that spectrum!
 
-<br/>
+## Why Use `mediator`
+For code that provides a substantial component of domain behaviour, using `mediator` provides a consistent mechanism for de-coupling, implementing, calling and mocking those components.
 
-## What (go) mediator Is NOT
+## When NOT To Use `mediator`
+Often when testing you may find yourself needing to use a function variable so that you can inject a fake or spy function in order to test higher-level code.  `mediator` is not designed or intended to replace this or similar techniques.
+
+## What `mediator` Is NOT
 - it is **not** a message queue
 - it is **not** asynchronous
 - it is **not** complicated!
@@ -47,136 +48,188 @@ There are many ways to implement a mediator, from simple `func` pointers to soph
 
 # How It Works
 
-#### TL;DR
+### TL;DR:
 
-Your code calls the mediator with some request and a pointer to an expected result variable; the mediator lookups up the command that handles that request, calls it and returns the result and any error.
+Your code registers commands to respond to requests of various types.  Commands are then called by passing requests to the mediator; the mediator lookups up the command that handles that request, calls it and returns the result and any error.
 
-#### In Detail
+### In Detail
 
-`blugnu/mediator` maintains a registry of command handlers that respond to requests of a specific type and return a result of a specific type.
+`blugnu/mediator` maintains a registry of commands that respond to requests of a specific type.  As well as responding to a specific request type, each registered command identifies the result type that it returns to any caller.  
 
-Command handlers are registered during initialising of your application or µservice or by establishing mock handlers in tests.
+**There can be only _one_ command registered for any given request type.**
 
-Command handlers are called indirectly via a generic `mediator.Execute[TRequest, TResult]` function (this function is **the mediator**).
+Commands are registered during initialising of your application using `RegisterCommand`, or by establishing mock commands in tests.  Command configuration checks are performed when registering commands.  The `RegisterCommand` function tests for an implementation of the `ConfigurationChecker` interface (`CheckConfiguration()` function) which is called if present.  If configuration checks return an error, this is returned by the `RegisterCommand` function and the command is not registered.
 
-The mediator consults the registry to identify the handler for the request type involved.  If no  handler is registered then a `NoHandlerError` is returned.
+Registered commands are called indirectly via a generic `mediator.Execute[TRequest, TResult]` function: **the mediator**.
 
-If a handler is identified but the caller and handler do not agree on the result type, a `ResultTypeError` is returned.
+The mediator consults the registered commands to identify the command for the request type involved.  If no command is registered then a `NoCommandForRequestTypeError` is returned.
 
-If the correct result type is specified, the mediator tests for an implementation of the `ConfigurationChecker` interface; if present, the command configuration is checked.  Any error returned from the `ConfigurationChecker` is wrapped in a `ConfigurationError` and returned to the caller.
+If a command is identified but the caller and the command do not agree on the result type, a `ResultTypeError` is returned.
 
-If there is no `ConfigurationChecker` or is successful, the mediator then tests for an implementation of the `Validator` interface; if present, the request is validated using this interface.  Any error returned from the `Validator` is wrapped in a `ValidationError` and returned to the caller.
+If the correct result type is expected, the mediator tests for an implementation of the `Validator` interface (`Validate()` function) which is called if present.  Any error returned from the `Validate()` function is wrapped in a `ValidationError` (if necessary) and returned to the caller.
 
-If there is no `Validator` interface, or the request is validated successfully, the request is passed to the command handler and the result and any error from the command are then returned to the caller.
+If there is no `Validator` interface, or the request is validated successfully, the request is passed to the command and the result and any error from the command then returned to the caller.
 
-All of this takes place _synchronously_ as direct function calls.  i.e. if the handler panics, the stack will contain a complete path of execution from the caller, thru the mediator to the corresponding handler function.
+All of this takes place _synchronously_ as direct function calls.  i.e. if the command panics, the stack will contain a complete path of execution from the caller, thru the mediator to the corresponding command function.
 
 <br/>
-<br/>
+<hr/>
 
-# Implementing a Command Handler
+# Implementing a Command
 
-1. (_Optional_): Create a Package for Your Command
-2. Declare request, result and handler types
-3. (_Optional_) Implement the `ConfigurationChecker` interface on the handler
-4. (_Optional_) Implement the `Validator` interface on the handler
-5. Implement the `CommandHandler` interface on the handler
+1. (_Recommended_): Create a Package for Your Command
+2. Declare request, result and command types
+3. (_Optional_) Implement the `ConfigurationChecker` interface for the command
+4. (_Optional_) Implement the `Validator` interface for the command
+5. Implement the `CommandHandler` interface for the command
 
 > 1. There are numerous advantages to implementing each command in its own package.  See [Packaged Commands](.docs/packaged-commands.md) for more details.
 
-> 3. If your handler requires configuration such as an injected repository or other dependencies, consider implementing the `ConfigurationChecker` interface.  See [Handler Configuration Checks](.docs/handler-configuration-checks.md) for more information.
+> 3. Any configuration checks incorporated in the `Execute` function are performed _for every request_; performing these checks in a `CheckConfiguration()` function (implementing the `ConfigurationChecker` interface) these checks are performed _just once_, at the time of registering the command.  See [Command Configuration Checks]((#command-configuration-checks)) for more information.
 
-> 4. Any request validation is recommended to be performed in a `Validate` function, implementing the `Validator` interface.  See [Request Validation](.docs/request-validation.md) for more information.
+> 4. Any request validation is recommended to be performed in a `Validate()` function (implementing the `Validator` interface).  See [Request Validation](.docs/request-validation.md) for more information.
 
-6. Register the command handler, e.g.:
+6. Register the command, e.g.:
 
 ```golang
-    mediator.RegisterCommand[getFoo.Request, *getFoo.Result](&getFoo.Handler{Repository: r})
+    err := mediator.RegisterCommand[myCommand.Request, *myCommand.Result](ctx, &myCommand.Handler{})
 ```
 
+> Once a command has been registered it _cannot be **un**registered_, i.e. it is not possible to dynamically reconfigure registered commands to respond to requests of a given type with different commands at different times.  _This is by design_.  In contrast, **_mock_** commands _can_ (and _must_) be reconfigured during the execution of different tests, and this _is_ possible (see: [Testing With Mediator](#testing)).
+
 <br/>
+<hr/>
 
 # Calling a Command Using `mediator`
 
-The `mediator.Execute` function accepts a pointer to a value to receive the result of a command _and_ it returns the _same_ result value.
+The `mediator.Execute` function accepts a `Context`, the request to be executed and a pointer to a value of the result type.  The function _returns_ the result value and any error from the command.
 
-As a consequence, there are two ways to call `mediator.Execute`:
+> _The result type pointer is not de-referenced by the mediator and does not receive any result._
 
-1. Pass an anonymous pointer and receive the returned result value
-2. Pass the address of a variable to receive the result and discard the returned value
+The pointer is required only as a type-hint for the compiler so that it can infer the types required by the generic `Execute` function.
 
-#### Receiving the Returned Result
+It is recommended to use `new()` to provide a pointer of the required type
 
+#### `example`
 ```golang
-    rq := getFoo.Request{Id: id}
-    rs, err := mediator.Execute(ctx, rq, new(*getFoo.Result))
+    rq := myCommand.Request{Id: id}
+    rs, err := mediator.Execute(ctx, rq, new(*myCommand.Result))
 ```
 
-#### Discarding the Returned Result
-
-```golang
-    rq := getFoo.Request{Id: id}
-    rs := &getFoo.Result{}
-    _, err := mediator.Execute(ctx, rq, &rs)
-```
-
-You can of course do both simultaneously.
-
-Ordinarily this could be confusing (potentially leading to two copies of the result), but there is one special case where it is _positively useful_: Commands that return _no result_.
+> In the above example, `myCommand` returns a pointer to a `myCommand.Result`; `new()` in this case is used to return _a pointer to a pointer_.
 
 ## Commands Returning No Result
 
-For commands that have no result value a special type is provided: `mediator.NoResult`
+For commands that have no result value `mediator` provides a convenience type for use when [implementing and registering commands returning no result](#implementing-no-result), and a variable for use as a type-hint when [calling such a command](#calling-no-result):
 
-A command that specifically has no result value can specify a result of this type.
+```golang
+    type NoResultType *int
+    var NoResult = new(NoResultType)
+```
 
-When calling such a command, pass an anonymous pointer of this type **_and_** discard the returned value:
+<a name="implementing-no-result"></a>
+A command that specifically has no result value is registered with a result type of `mediator.NoResultType` and, as you would expect,  the `Execute()` function of that command returns `mediator.NoResultType`.
 
+> `NoResultType` is a _pointer_ so that when implementing the `Execute()` function for a command returning `NoResultType` you can return `nil`.
+
+#### `example`
+```golang
+    // Registering a command returning no result
+    err := mediator.RegisterCommand[MyRequestType, mediator.NoResultType](ctx, MyCommandHandler{})
+
+    // Implementing the Execute function of a command returning no result
+    func (cmd *Handler) Execute(ctx context.Context, req Request) (mediator.NoResultType, error) {
+        if err := SomeOperation(); err != nil {
+            return nil, err
+        }
+        return nil, nil
+    }
+```
+
+<a name="calling-no-result"></a>
+A caller can use either `new(mediator.NoResultType)` or `mediator.NoResult` as the result type-hint for the `Execute` function, discarding the returned result.
+
+#### `example`
 ```golang
     rq := deleteFoo.Request{Id: id}
-    _, err := mediator.Execute(ctx, rq, new(mediator.NoResult))
+
+    // these two statements are functionally equivalent
+    _, err := mediator.Execute(ctx, rq, mediator.NoResult)
+    _, err := mediator.Execute(ctx, rq, new(mediator.NoResultType))
 ```
-
-
 
 <br/>
+<hr/>
 
-# Testing With Mediator
+# Command Configuration Checks
 
-The loose-coupling that can be achieved with a mediator has obvious utility when it comes to testing code.
+Before executing any request, a command will typically check the configuration of the command, e.g. to ensure that any required dependencies have been supplied.  This incurs the overhead of those configuration checks on every request when they typically only need to be performed once.
 
-Most obviously it enables code under test to make requests that are handled by *test* handlers, rather than *production* handlers, without the code under test having to do anything to achieve this or even being aware that it is happening!
-
-
-## Mock Command Handlers
-You can implement test `Receiver` and `Handler` implementations as needed.  But, out-of-the-box, `blugnu/mediator` provides mocks that can be used in most - if not all - common use cases. 
-
-Factory funcs are provided to create mocks simulating specific return values (including errors) and/or to determine how many times a handler is called and with what data or requests, during execution of code under test.
-
-The mocks returned by these factories provide a `Remove()` method which _must_ be deferred to ensure the mock handler is deregistered when the test has completed.
-
-For example, to fake a `getFoo` command that returns a zero-value result and indicates successful completion for _any and all_ requests it receives:
-
-```go
-    mock := mediator.MockCommand[getFoo.Request, getFoo.Result]()
-    defer mock.Remove()
-```
-
-The other factory functions are:
+To perform these checks only once, a command may implement the `ConfigurationChecker` interface:
 
 ```golang
-    // Mocks a command handler returning a specific result and nil error
+type ConfigurationChecker interface {
+    CheckConfiguration(context.Context) (err error)
+}
+```
+
+If implemented, the `CheckConfiguration` function is called when _registering_ the command.  If an error is returned from the function then the command registration fails and the error is returned from the `RegisterCommand` function.
+
+<br/>
+<hr/>
+
+# Testing With Mediator <a name="testing"></a>
+
+The loose-coupling that can be achieved with a mediator is particularly useful for unit testing.
+
+When unit testing code that calls some command using mediator you are able to mock responses to the request to test the behaviour of your code under a variety of error or result conditions, without having to modify the code under test.
+
+
+## Mock commands
+You can implement mock commands for your request as needed, or you can use the mock factories provided by `blugnu/mediator`; these should be sufficient for most - if not all - common use cases.
+
+The mocks returned by these factories provide an `Unregister()` method to remove the registration for that command; typically you would defer a call to this `Unregister()` method immediately after initialising the mock
+
+#### `example`
+```go
+    mock := mediator.MockCommand[myCommand.Request, myCommand.Result]()
+    defer mock.Unregister()
+```
+
+The example above illustrates the mock factory that initialises a command that mocks a successful call, returning a zero-value result and nil error.
+
+The factory functions are:
+
+```golang
+    // Mocks a command returning a zero-value result and nil error
+    MockCommand[TRequest, TResult]() *mockcommand[TRequest, TResult]
+
+    // Mocks a command returning a specific result and nil error
     MockCommandResult[TRequest, TResult](result TResult) *mockcommand[TRequest, TResult]
 
-    // Mocks a command handler returning a specific error
+    // Mocks a command returning a specific error
     MockCommandError[TRequest, TResult](error) *mockcommand[TRequest, TResult]
 
-    // Mocks a command handler returning an error from an implementation
+    // Mocks a command returning an error from an implementation
     // of the Validator interface
-    MockCommandConfigurationError[TRequest, TResult](error) *mockcommand[TRequest, TResult]
-
-    // Mocks a command handler returning an error from an implementation
-    // of the ConfigurationChecker interface
     MockCommandValidationError[TRequest, TResult](error) *mockcommand[TRequest, TResult]
 ```
 
+> There is no factory for mocking a command that returns an error from a `ConfigurationChecker` interface; such a command would be impossible to register and so could not be called in any test scenario.
+
+The mock returned by these factories provide methods for determining how many times the mock was called, whether it was called at all, as well as copies of all requests received by the mock over its lifetime.
+
+## Custom Mocks
+
+If the provided mock factories are not sufficient, you can register a custom mock using the `RegisterMockCommand()` function.  This is similar to the `RegisterCommand()` function, registering the specified command to handle requests of a specified type and returning a specified result type.
+
+There are two main differences:
+
+- `RegisterMockCommand()` does **not** return any error; if the supplied mock returns an error from any configuration checks, the mock will not be registered and the function will `panic`.
+- `RegisterMockCommand()` returns a function to be used to unregister the mock when no longer required (typically immediately deferred to clean up the registration when the test completes)
+
+#### `example`
+```golang
+    unreg := RegisterMockCommand[myCommand.Request, NoResultType](ctx, &mockMyCommand{})
+    defer unreg()
+```
