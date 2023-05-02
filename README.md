@@ -230,6 +230,6 @@ There are two main differences:
 
 #### `example`
 ```golang
-    unreg := RegisterMockCommand[myCommand.Request, NoResultType](ctx, &mockMycommand{})
+    unreg := RegisterMockCommand[myCommand.Request, NoResultType](ctx, &mockMyCommand{})
     defer unreg()
 ```
