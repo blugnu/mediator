@@ -6,7 +6,6 @@
     <a><img alt="go version >= 1.18" src="https://img.shields.io/github/go-mod/go-version/blugnu/mediator?style=flat-square"/></a>
     <a href="https://github.com/blugnu/mediator/blob/master/LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/blugnu/mediator?color=%234275f5&style=flat-square"/></a>
     <a href="https://coveralls.io/github/blugnu/mediator?branch=master"><img alt="coverage" src="https://img.shields.io/coveralls/github/blugnu/mediator?style=flat-square"/></a>
-    <a href="https://snyk.io/test/github/blugnu/mediator?branch=master"><img alt="vulnerabilities" src="https://snyk.io/test/github/blugnu/mediator/badge.svg?branch=master&style=flat-square"/></a>
     <a href="https://pkg.go.dev/github.com/blugnu/mediator"><img alt="docs" src="https://pkg.go.dev/badge/github.com/blugnu/mediator"/></a>
   </div>
 </div>
