@@ -39,7 +39,7 @@ For code that provides a substantial component of domain behaviour, using `media
 ## When NOT To Use `mediator`
 Often when testing you may find yourself needing to use a function variable so that you can inject a fake or spy function in order to test higher-level code.  `mediator` is not designed or intended to replace this or similar techniques.
 
-## What (go) mediator Is NOT
+## What `mediator` Is NOT
 - it is **not** a message queue
 - it is **not** asynchronous
 - it is **not** complicated!
@@ -73,6 +73,7 @@ If there is no `Validator` interface, or the request is validated successfully, 
 All of this takes place _synchronously_ as direct function calls.  i.e. if the command panics, the stack will contain a complete path of execution from the caller, thru the mediator to the corresponding command function.
 
 <br/>
+<hr/>
 
 # Implementing a Command
 
@@ -97,6 +98,7 @@ All of this takes place _synchronously_ as direct function calls.  i.e. if the c
 > Once a command has been registered it _cannot be **un**registered_, i.e. it is not possible to dynamically reconfigure registered commands to respond to requests of a given type with different commands at different times.  _This is by design_.  In contrast, **_mock_** commands _can_ (and _must_) be reconfigured during the execution of different tests, and this _is_ possible (see: [Testing With Mediator](#testing)).
 
 <br/>
+<hr/>
 
 # Calling a Command Using `mediator`
 
